@@ -9,6 +9,7 @@ extends Node2D
 
 var allPieces = []
 
+#PackedScenes of the pieces (needs to be instantiated to further work with)
 var possiblePieces = [
 	preload("res://scenes/bluePiece.tscn"),
 	preload("res://scenes/greenPiece.tscn"),
@@ -18,6 +19,11 @@ var possiblePieces = [
 	preload("res://scenes/yellowPiece.tscn"),
 ]
 
+#variables for moving pieces logic
+var firstTouch = null #mouse click down
+var lastTouch = null #mouse click up
+var isAttemptingMove = false 
+
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	randomize()
@@ -26,7 +32,7 @@ func _ready():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
-	pass
+	touchInput()
 	
 func make2Darray(width: int, height: int):
 	var array = [];
@@ -36,10 +42,24 @@ func make2Darray(width: int, height: int):
 			array[i].append(null)
 	return array
 	
-func gridToPixel(column: int, row: int):
+func gridToPixel(column: int, row: int) -> Vector2:
 	var x = xStart + offset * column
 	var y = yStart + (-offset) * row
 	return Vector2(x, y)
+	
+# Takes a vec2 of pixel coords and returns the position of the 
+# piece that contains that point in the grid. Returns null if out of bounds
+func pixelToGrid(vec: Vector2):
+	var column = round((vec.x - xStart) / offset)
+	var row = round((vec.y - yStart) / offset)
+	if ( #if out of bounds of grid
+		column > allPieces.size()-1 || 
+		column < 0 || 
+		row < -(allPieces[0].size()-1) ||
+		row > 0
+	):
+		return null
+	return Vector2(column, row)
 	
 func spawnPieces(width: int, height: int):
 	for i in width:
@@ -72,3 +92,35 @@ func getChainLength(
 		current += getChainLength(column, row-1, color)
 	return current
 		
+# Gets mouse down and mouse up (x,y) coords and stores them
+# in order to detect swiping of pieces
+func touchInput():
+	if Input.is_action_just_pressed("ui_touch"):
+		firstTouch = pixelToGrid(get_global_mouse_position())
+		print(firstTouch)
+		#if position is inside grid, player is attempting move
+		if(firstTouch != null):
+			isAttemptingMove = true
+		else:
+			isAttemptingMove = false
+	elif Input.is_action_just_released("ui_touch"):
+		lastTouch = pixelToGrid(get_global_mouse_position())
+		#if position is inside grid and player is attempting move
+		if lastTouch != null && isAttemptingMove :
+			swapPieces(firstTouch, lastTouch)
+			isAttemptingMove = false
+			
+func swapPieces(firstPieceCoords: Vector2, secondPieceCoords: Vector2):
+	var firstPiece: Node2D = allPieces[firstPieceCoords.x][firstPieceCoords.y]
+	var otherPiece: Node2D = allPieces[firstPieceCoords.x + secondPieceCoords.x][firstPieceCoords.y - secondPieceCoords.y]
+	#change in grid
+	print(firstPieceCoords, secondPieceCoords) #TODO: fix the fucking grid
+	allPieces[firstPieceCoords.x][firstPieceCoords.y] = otherPiece
+	allPieces[firstPieceCoords.x + secondPieceCoords.x][firstPieceCoords.y - secondPieceCoords.y] = firstPiece
+	#change in game
+	firstPiece.position = gridToPixel(secondPieceCoords.x, secondPieceCoords.y)
+	otherPiece.position = gridToPixel(firstPieceCoords.x, firstPieceCoords.y)
+	
+	
+	
+	

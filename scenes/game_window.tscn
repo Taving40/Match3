@@ -28,5 +28,5 @@ script = ExtResource("4_gqsgt")
 width = 8
 height = 10
 xStart = 64
-yStart = 800
+yStart = 256
 offset = 64

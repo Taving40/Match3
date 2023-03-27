@@ -42,24 +42,24 @@ func make2Darray(width: int, height: int):
 			array[i].append(null)
 	return array
 	
-func gridToPixel(column: int, row: int) -> Vector2:
+func gridToPixel(column: int, row: int) -> Vector2i:
 	var x = xStart + offset * column
-	var y = yStart + (-offset) * row
-	return Vector2(x, y)
+	var y = yStart + offset * row
+	return Vector2i(x, y)
 	
 # Takes a vec2 of pixel coords and returns the position of the 
 # piece that contains that point in the grid. Returns null if out of bounds
 func pixelToGrid(vec: Vector2):
-	var column = round((vec.x - xStart) / offset)
-	var row = round((vec.y - yStart) / offset)
+	var column = roundi((vec.x - xStart) / offset)
+	var row = roundi((vec.y - yStart) / offset)
 	if ( #if out of bounds of grid
 		column > allPieces.size()-1 || 
 		column < 0 || 
-		row < -(allPieces[0].size()-1) ||
-		row > 0
+		row > allPieces[0].size()-1 ||
+		row < 0
 	):
 		return null
-	return Vector2(column, row)
+	return Vector2i(column, row)
 	
 func spawnPieces(width: int, height: int):
 	for i in width:
@@ -97,7 +97,6 @@ func getChainLength(
 func touchInput():
 	if Input.is_action_just_pressed("ui_touch"):
 		firstTouch = pixelToGrid(get_global_mouse_position())
-		print(firstTouch)
 		#if position is inside grid, player is attempting move
 		if(firstTouch != null):
 			isAttemptingMove = true
@@ -107,18 +106,40 @@ func touchInput():
 		lastTouch = pixelToGrid(get_global_mouse_position())
 		#if position is inside grid and player is attempting move
 		if lastTouch != null && isAttemptingMove :
-			swapPieces(firstTouch, lastTouch)
-			isAttemptingMove = false
-			
-func swapPieces(firstPieceCoords: Vector2, secondPieceCoords: Vector2):
+			var direction: Vector2i = getDirection(firstTouch, lastTouch)
+			print(firstTouch, lastTouch, direction)
+			if direction != Vector2i.ZERO:
+				swapPieces(firstTouch, direction)
+				isAttemptingMove = false
+				
+enum Axis {X, Y}
+# Calculates user intended direction of swapping pieces within following constraints:
+# Can only return (-1,0), (1,0), (0,1), (0,-1) (LEFT, RIGHT, UP, DOWN)
+func getDirection(point1: Vector2i, point2: Vector2i) -> Vector2i:
+	# assume X most significant axis first
+	var mostSignificantAxis: Axis = Axis.X
+	# check if Y is more significant actually
+	if abs(point2.y - point1.y) > abs(point2.x - point1.x):
+		mostSignificantAxis = Axis.Y
+	if mostSignificantAxis == Axis.X:
+		return Vector2i(sign(point2.x - point1.x), 0)
+	else:
+		return Vector2i(0, sign(point2.y - point1.y))
+		
+
+func swapPieces(firstPieceCoords: Vector2, direction: Vector2):
 	var firstPiece: Node2D = allPieces[firstPieceCoords.x][firstPieceCoords.y]
-	var otherPiece: Node2D = allPieces[firstPieceCoords.x + secondPieceCoords.x][firstPieceCoords.y - secondPieceCoords.y]
+	#figure out grid coords of other piece
+	var otherPieceCoords: Vector2 = Vector2(
+		firstPieceCoords.x + direction.x,
+		firstPieceCoords.y + direction.y
+	)
+	var otherPiece: Node2D = allPieces[otherPieceCoords.x][otherPieceCoords.y]
 	#change in grid
-	print(firstPieceCoords, secondPieceCoords) #TODO: fix the fucking grid
 	allPieces[firstPieceCoords.x][firstPieceCoords.y] = otherPiece
-	allPieces[firstPieceCoords.x + secondPieceCoords.x][firstPieceCoords.y - secondPieceCoords.y] = firstPiece
+	allPieces[otherPieceCoords.x][otherPieceCoords.y] = firstPiece
 	#change in game
-	firstPiece.position = gridToPixel(secondPieceCoords.x, secondPieceCoords.y)
+	firstPiece.position = gridToPixel(otherPieceCoords.x, otherPieceCoords.y)
 	otherPiece.position = gridToPixel(firstPieceCoords.x, firstPieceCoords.y)
 	
 	
